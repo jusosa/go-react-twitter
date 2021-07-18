@@ -60,3 +60,44 @@ func ViewProfile(ID string) (models.User, error) {
 
 	return profile, nil
 }
+
+func UpdateUser(user models.User, ID string) (bool, error) {
+	newData := make(map[string]interface{})
+	if len(user.Name) > 0 {
+		newData["name"] = user.Name
+	}
+	if len(user.LastName) > 0 {
+		newData["last_name"] = user.LastName
+	}
+	if len(user.Avatar) > 0 {
+		newData["avatar"] = user.Avatar
+	}
+	if len(user.Banner) > 0 {
+		newData["banner"] = user.Banner
+	}
+	if len(user.Biography) > 0 {
+		newData["biography"] = user.Biography
+	}
+	if len(user.Location) > 0 {
+		newData["location"] = user.Location
+	}
+	if len(user.Web) > 0 {
+		newData["web"] = user.Web
+	}
+	newData["birthdate"] = user.BirthDate
+
+	updateStr := bson.M{
+		"$set": newData,
+	}
+
+	objId, _ := primitive.ObjectIDFromHex(ID)
+
+	filter := bson.M{"_id": bson.M{"$eq": objId}}
+
+	_, err := UpdateOne(filter, updateStr, "users")
+	if err != nil{
+		return false, err
+	}
+
+	return true, nil
+}

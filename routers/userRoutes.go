@@ -112,3 +112,29 @@ func ViewProfile(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(profile)
 }
+
+func UpdateUser(w http.ResponseWriter, r *http.Request) {
+	var user models.User
+	var status bool
+
+	err := json.NewDecoder(r.Body).Decode(&user)
+
+	if err != nil {
+		http.Error(w, "Update error: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	status, err = bd.UpdateUser(user, UserId)
+	if err != nil{
+		http.Error(w, "Update Error. Try again: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if !status{
+		http.Error(w, "Update Error. Try again:", http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+
+}
