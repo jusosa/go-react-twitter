@@ -6,7 +6,11 @@ import (
 	"github.com/jusosa/go-react-twitter/jwt"
 	"github.com/jusosa/go-react-twitter/models"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"io"
 	"net/http"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -125,16 +129,165 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	status, err = bd.UpdateUser(user, UserId)
-	if err != nil{
+	if err != nil {
 		http.Error(w, "Update Error. Try again: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if !status{
+	if !status {
 		http.Error(w, "Update Error. Try again:", http.StatusBadRequest)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
 
+}
+
+func UploadAvatar(w http.ResponseWriter, r *http.Request) {
+	file, handler, err := r.FormFile("avatars")
+	var extension = strings.Split(handler.Filename, ".")[1]
+	var fileName string = "uploads/avatars/" + UserId + "." + extension
+
+	f, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
+		http.Error(w, "Error on upload: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	_, err = io.Copy(f, file)
+	if err != nil {
+		http.Error(w, "Error saving the file: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var user models.User
+	var status bool
+
+	user.Avatar = UserId + "." + extension
+	status, err = bd.UpdateUser(user, UserId)
+	if err != nil || !status {
+		http.Error(w, "Error saving the avatar: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+}
+
+func UploadBanner(w http.ResponseWriter, r *http.Request) {
+	file, handler, err := r.FormFile("banners")
+	var extension = strings.Split(handler.Filename, ".")[1]
+	var fileName string = "uploads/banners/" + UserId + "." + extension
+
+	f, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
+		http.Error(w, "Error on upload: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	_, err = io.Copy(f, file)
+	if err != nil {
+		http.Error(w, "Error saving the file: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var user models.User
+	var status bool
+
+	user.Banner = UserId + "." + extension
+	status, err = bd.UpdateUser(user, UserId)
+	if err != nil || !status {
+		http.Error(w, "Error saving the banner: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+}
+
+func GetAvatar(w http.ResponseWriter, r *http.Request) {
+	ID := r.URL.Query().Get("id")
+	var openFile *os.File
+	if len(ID) < 1 {
+		http.Error(w, "Id param is required", http.StatusBadRequest)
+		return
+	}
+
+	profile, err := bd.ViewProfile(ID)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusBadRequest)
+		return
+	}
+
+	openFile, err = os.Open("uploads/avatars/"+profile.Avatar)
+	if err != nil {
+		http.Error(w, "Source not found", http.StatusBadRequest)
+		return
+	}
+
+	_, err = io.Copy(w, openFile)
+	if err != nil {
+		http.Error(w, "Could not load the source", http.StatusBadRequest)
+		return
+	}
+}
+
+func GetBanner(w http.ResponseWriter, r *http.Request) {
+	ID := r.URL.Query().Get("id")
+	var openFile *os.File
+	if len(ID) < 1 {
+		http.Error(w, "Id param is required", http.StatusBadRequest)
+		return
+	}
+
+	profile, err := bd.ViewProfile(ID)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusBadRequest)
+		return
+	}
+
+	openFile, err = os.Open("uploads/banners/"+profile.Banner)
+	if err != nil {
+		http.Error(w, "Source not found", http.StatusBadRequest)
+		return
+	}
+
+	_, err = io.Copy(w, openFile)
+	if err != nil {
+		http.Error(w, "Could not load the source", http.StatusBadRequest)
+		return
+	}
+}
+
+func GetUsersAll(w http.ResponseWriter, r *http.Request) {
+	typeUser := r.URL.Query().Get("type")
+	search := r.URL.Query().Get("search")
+
+	if len(typeUser) < 1 {
+		http.Error(w, "Missed type param", http.StatusBadRequest)
+		return
+	}
+
+	if len(r.URL.Query().Get("page")) < 1 {
+		http.Error(w, "Missed page param", http.StatusBadRequest)
+		return
+	}
+
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil{
+		http.Error(w, "Invalid page number", http.StatusBadRequest)
+		return
+	}
+
+
+	users, status := bd.FindAllUsers(UserId, int64(page), search, typeUser)
+	if !status{
+		http.Error(w, "No Data Found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("content-type","application/json")
+	w.WriteHeader(http.StatusOK)
+
+	json.NewEncoder(w).Encode(users)
 }

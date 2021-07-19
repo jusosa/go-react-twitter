@@ -65,3 +65,13 @@ func DeleteOne(filter interface{}, collectionName string) error  {
 
 	return err
 }
+
+func Aggregate(query interface{}, collectionName string) (*mongo.Cursor, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	db := MongoCN.Database("twittor")
+	col := db.Collection(collectionName)
+
+	return col.Aggregate(ctx, query)
+}
